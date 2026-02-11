@@ -6,8 +6,10 @@ import fiap.tds.entities.transaction.TransactionId;
 import fiap.tds.entities.transaction.Withdrawl;
 import fiap.tds.entities.valueObjects.Money;
 
+import javax.sql.rowset.Predicate;
 import java.time.Instant;
 import java.util.*;
+import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
 
@@ -79,5 +81,28 @@ public final class Account {
 
         history.add(t);
         byId.put(t.id(), t);
+    }
+
+    public List<Transaction> statement(Instant from, Instant to){
+        return history.stream()
+                .filter(t -> !t.at().isBefore(from) && t.at().isBefore(to))
+                .sorted(Comparator.comparing(Transaction::at))
+                .toList();
+    }
+
+    public Money sumInPeriod(Instant from, Instant to){
+        return history.stream()
+                .filter(t -> !t.at().isBefore(from) && t.at().isBefore(to))
+                .map(Transaction::delta)
+                .reduce(Money.zero(), Money::plus);
+    }
+
+    public Map<String, Money> sumByCategoryInPeriod(Instant from, Instant to){
+        return history.stream()
+                .filter(t -> !t.at().isBefore(from) && t.at().isBefore(to))
+                .collect(Collectors.groupingBy(
+                        Transaction::category,
+                        Collectors.reducing(Money.zero(), Transaction::delta, Money::plus)
+                ));
     }
 }
